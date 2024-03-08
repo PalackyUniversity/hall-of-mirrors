@@ -58,7 +58,8 @@ def run(iteration=None) -> tuple[list[float], list[float], np.ndarray, np.ndarra
 
     # Histogram
     diff = death - vaccination
-    hist_x, hist_y = np.unique(diff[~np.isnan(diff)], return_counts=True)
+    diff = np.floor(diff[~np.isnan(diff)] / 7)  # Convert to weeks
+    hist_x, hist_y = np.unique(diff, return_counts=True)
     # print(np.sum(~np.isnan(vaccination)))
 
     return mortality_vacc, mortality_norm, hist_x.astype(int), hist_y
@@ -81,7 +82,7 @@ if __name__ == "__main__":
     runs_hist_y = list(map(lambda m: m[3], output))
 
     # === PLOT ACM ===
-    x = list(range(len(runs_norm[0])))
+    x = list(range(1, len(runs_norm[0]) + 1))
 
     plt.figure(figsize=(11, 6))
     plt.plot(x, np.median(runs_vacc, axis=0), label="Vaccinated - median", color="r")
@@ -112,8 +113,8 @@ if __name__ == "__main__":
     plt.fill_between(big_histogram_x,
                      np.quantile(big_histogram_y, q=0.25, axis=0),
                      np.quantile(big_histogram_y, q=0.75, axis=0), color="b", alpha=0.2, label="25-75% quantile")
-    plt.xlabel("Number of days since vaccination")
     plt.ylabel("Number of deaths on that day")
+    plt.xlabel("Week number")
     plt.legend()
     plt.tight_layout()
     plt.savefig(os.path.join(RESULT_DIR, f"{filename}_hist.svg"))
