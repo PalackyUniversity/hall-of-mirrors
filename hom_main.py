@@ -29,6 +29,9 @@ def run(iteration=None) -> tuple[list[float], list[float], np.ndarray, np.ndarra
     vaccination[vaccination > death] = np.nan
     # print(np.sum(~np.isnan(vaccination)))
 
+    # Remove vaccinations on the day of death with 50% probability, so it is fair
+    vaccination[(death == vaccination) & (np.random.rand(len(vaccination)) <= 0.5)] = np.nan
+
     # Healthy Vaccine Effect (HVE)
     # p = HVE_P * (1 - d / HVE_K)
     # - p is probability that the vaccine will NOT be given due to HVE
@@ -36,7 +39,7 @@ def run(iteration=None) -> tuple[list[float], list[float], np.ndarray, np.ndarra
     # - If the person is vaccinated on his death day (d=0), the probability of HVE is HVE_P
     # - If the person is vaccinated HVE_K days before his death (d=HVE_K), the probability of HVE is 0
     for p, d in zip(np.linspace(HVE_P, 0, HVE_K + 1), range(HVE_K + 1)):
-        vaccination[(vaccination + d == death) * np.random.rand(vaccination.shape[0]) > 1 - p] = np.nan
+        vaccination[(vaccination + d == death) & (np.random.rand(vaccination.shape[0]) <= p)] = np.nan
 
     dead_vacc, dead_norm = [], []
     alive_vacc, alive_norm = [], []
@@ -80,11 +83,12 @@ if __name__ == "__main__":
     runs_norm = list(map(lambda m: m[1], output))
     runs_hist_x = list(map(lambda m: m[2], output))
     runs_hist_y = list(map(lambda m: m[3], output))
+    runs_effectiveness = list((np.array(runs_norm) - np.array(runs_vacc)) / np.array(runs_norm))
 
     # === PLOT ACM ===
     x = list(range(1, len(runs_norm[0]) + 1))
 
-    plt.figure(figsize=(11, 6))
+    plt.figure(figsize=(11, 4))
     plt.plot(x, np.median(runs_vacc, axis=0), label="Vaccinated - median", color="r")
     plt.plot(x, np.median(runs_norm, axis=0), label="Unvaccinated - median", color="b")
     plt.fill_between(x,
@@ -118,3 +122,16 @@ if __name__ == "__main__":
     plt.legend()
     plt.tight_layout()
     plt.savefig(os.path.join(RESULT_DIR, f"{filename}_hist.svg"))
+    plt.clf()
+
+    # === PLOT VACCINE EFFECTIVENESS ===
+    plt.plot(x, np.median(runs_effectiveness, axis=0), label="Effectiveness - median", color="g")
+    plt.fill_between(x,
+                     np.quantile(runs_effectiveness, q=0.25, axis=0),
+                     np.quantile(runs_effectiveness, q=0.75, axis=0), color="g", alpha=0.2, label="Effectiveness - 25-75% quantile")
+    plt.ylabel("Vaccine effectiveness")
+    plt.xlabel("Week number")
+    plt.legend()
+    plt.tight_layout()
+    plt.savefig(os.path.join(RESULT_DIR, f"{filename}_effectiveness.svg"))
+
