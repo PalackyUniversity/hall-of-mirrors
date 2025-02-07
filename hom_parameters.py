@@ -2,9 +2,9 @@ import random
 import os
 
 # === PARAMETERS ===
-N_PEOPLE = 2_000_000    # number of individuals in the model
+N_PEOPLE = 1_000_000    # number of individuals in the model
 N_DAYS = 2 * 52 * 7     # number of simulation days (approximately 2 years)
-N_RUNS = 20             # number of simulations
+N_RUNS = 100             # number of simulations
 
 # Death
 DEATH_P = 0.02          # probability of death (=> N_PEOPLE * P_DEATH = approximate number of deaths)

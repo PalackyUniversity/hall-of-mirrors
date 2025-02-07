@@ -4,12 +4,13 @@ from hom_parameters import *
 
 from tqdm.contrib.concurrent import process_map
 from multiprocessing import freeze_support
+from typing import Any
 from tqdm import tqdm
 
 import numpy as np
 
 
-def run(iteration=None):
+def run(iteration=None) -> dict[str, Any]:
     vaccination, death = do_simulation()
     dead_vacc  = np.empty((N_DAYS, ), dtype=float)
     dead_norm  = np.empty((N_DAYS, ), dtype=float)
@@ -29,6 +30,9 @@ def run(iteration=None):
     alive_vacc = alive_vacc.reshape(-1, 7).mean(axis=1)
     alive_norm = alive_norm.reshape(-1, 7).mean(axis=1)
 
+    # Calculate mortality for both categories
+    mortality_all = (dead_vacc + dead_norm) / (alive_vacc + alive_norm) * YEAR_DAYS
+
     # Remove values where there are not enough data
     dead_vacc[dead_vacc < MIN_DEATH_COUNT] = np.nan
     dead_norm[dead_norm < MIN_DEATH_COUNT] = np.nan
@@ -36,7 +40,6 @@ def run(iteration=None):
     # Calculate day mortality
     mortality_vacc = dead_vacc / alive_vacc * YEAR_DAYS
     mortality_norm = dead_norm / alive_norm * YEAR_DAYS
-    mortality_all = (dead_vacc + dead_norm) / (alive_vacc + alive_norm) * YEAR_DAYS
 
     # Histogram
     diff = death - vaccination
