@@ -1,6 +1,7 @@
 from tqdm.contrib.concurrent import process_map
 from multiprocessing import freeze_support
 from hom_parameters import *
+from typing import Callable
 from tqdm import tqdm
 import matplotlib.pyplot as plt
 import seaborn as sns
@@ -8,21 +9,22 @@ import numpy as np
 import random
 
 
-def random_day(p: float) -> int:
+def random_day(distribution: Callable[[], int], p: float) -> int:
     """
     Randomly assign day of phenomenon effect if phenomenon is supposed to occur.
     :param p: probability of phenomenon
+    :param distribution: distribution to select the day from
     :return:
         - With probability   p (=> phenomenon occurs): a random day in the whole simulation period
         - With probability 1-p (=> phenomenon doesn't occur): NaN
     """
-    return random.randint(0, N_DAYS) if random.random() < p else np.nan
+    return distribution() if random.random() < p else np.nan
 
 
-def run(iteration=None) -> tuple[list[float], list[float], np.ndarray, np.ndarray]:
+def run(iteration=None) -> dict:
     # Day of death/vaccination of each person (NaN if the person doesn't die/get vaccinated)
-    death = np.array([random_day(P_DEATH) for _ in range(N_PEOPLE)])
-    vaccination = np.array([random_day(P_VACCINATION) for _ in range(N_PEOPLE)])
+    death = np.array([random_day(DEATH_DISTRIBUTION, DEATH_P) for _ in range(N_PEOPLE)])
+    vaccination = np.array([random_day(VACCINATION_DISTRIBUTION, VACCINATION_P) for _ in range(N_PEOPLE)])
     # print(np.sum(~np.isnan(vaccination)))
 
     # Remove vaccinations after death
@@ -51,13 +53,23 @@ def run(iteration=None) -> tuple[list[float], list[float], np.ndarray, np.ndarra
         alive_vacc.append(np.sum(((death > i) | np.isnan(death)) & (vaccination <= i)))
         alive_norm.append(np.sum(((death > i) | np.isnan(death)) & (np.isnan(vaccination) | (vaccination > i))))
 
+    # Convert to numpy arrays
+    dead_vacc, dead_norm = np.array(dead_vacc, dtype=float), np.array(dead_norm, dtype=float)
+    alive_vacc, alive_norm = np.array(alive_vacc, dtype=float), np.array(alive_norm, dtype=float)
+
+    # Remove values where there are not enough data
+    dead_vacc[dead_vacc < MIN_DEATH_COUNT] = np.nan
+    dead_norm[dead_norm < MIN_DEATH_COUNT] = np.nan
+
     # Calculate day mortality
-    mortality_vacc = np.array(dead_vacc) / np.array(alive_vacc) * 365.25
-    mortality_norm = np.array(dead_norm) / np.array(alive_norm) * 365.25
+    mortality_vacc = dead_vacc / alive_vacc * YEAR_DAYS
+    mortality_norm = dead_norm / alive_norm * YEAR_DAYS
+    mortality_all = (dead_vacc + dead_norm) / (alive_vacc + alive_norm) * YEAR_DAYS
 
     # Convert to weekly mortality
     mortality_vacc = [np.mean(mortality_vacc[i:i + 7]) for i in range(0, N_DAYS, 7)]
     mortality_norm = [np.mean(mortality_norm[i:i + 7]) for i in range(0, N_DAYS, 7)]
+    mortality_all = [np.mean(mortality_all[i:i + 7]) for i in range(0, N_DAYS, 7)]
 
     # Histogram
     diff = death - vaccination
@@ -65,8 +77,17 @@ def run(iteration=None) -> tuple[list[float], list[float], np.ndarray, np.ndarra
     hist_x, hist_y = np.unique(diff, return_counts=True)
     # print(np.sum(~np.isnan(vaccination)))
 
-    return mortality_vacc, mortality_norm, hist_x.astype(int), hist_y
-
+    return {
+        "mortality": {
+            "vacc": mortality_vacc,
+            "norm": mortality_norm,
+            "all": mortality_all
+        },
+        "histogram": {
+            "x": hist_x.astype(int),
+            "y": hist_y
+        }
+    }
 
 if __name__ == "__main__":
     sns.set_theme()
@@ -79,24 +100,28 @@ if __name__ == "__main__":
     output = [run() for _ in tqdm(range(N_RUNS))]
 
     # Extract mortality
-    runs_vacc = list(map(lambda m: m[0], output))
-    runs_norm = list(map(lambda m: m[1], output))
-    runs_hist_x = list(map(lambda m: m[2], output))
-    runs_hist_y = list(map(lambda m: m[3], output))
+    runs_all = list(map(lambda m: m["mortality"]["all"], output))
+    runs_vacc = list(map(lambda m: m["mortality"]["vacc"], output))
+    runs_norm = list(map(lambda m: m["mortality"]["norm"], output))
+    runs_hist_x = list(map(lambda m: m["histogram"]["x"], output))
+    runs_hist_y = list(map(lambda m: m["histogram"]["y"], output))
     runs_effectiveness = list((np.array(runs_norm) - np.array(runs_vacc)) / np.array(runs_norm))
 
     # === PLOT ACM ===
     x = list(range(1, len(runs_norm[0]) + 1))
 
     plt.figure(figsize=(11, 4))
-    plt.plot(x, np.median(runs_vacc, axis=0), label="Vaccinated - median", color="r")
-    plt.plot(x, np.median(runs_norm, axis=0), label="Unvaccinated - median", color="b")
+    plt.plot(x, np.mean(runs_vacc, axis=0), label="Vaccinated: mean", color="r")
+    plt.plot(x, np.mean(runs_norm, axis=0), label="Unvaccinated: mean", color="b")
+    plt.plot(x, np.mean(runs_all, axis=0), label="All: mean", color="b")
     plt.fill_between(x,
-                     np.quantile(runs_vacc, q=0.25, axis=0),
-                     np.quantile(runs_vacc, q=0.75, axis=0), color="r", alpha=0.2, label="Vaccinated - 25-75% quantile")
+                     np.mean(runs_vacc, axis=0) - np.std(runs_vacc, axis=0),
+                     np.mean(runs_vacc, axis=0) + np.std(runs_vacc, axis=0), color="r", alpha=0.2,
+                     label="Vaccinated: mean ± std")
     plt.fill_between(x,
-                     np.quantile(runs_norm, q=0.25, axis=0),
-                     np.quantile(runs_norm, q=0.75, axis=0), color="b", alpha=0.2, label="Unvaccinated - 25-75% quantile")
+                     np.mean(runs_norm, axis=0) - np.std(runs_norm, axis=0),
+                     np.mean(runs_norm, axis=0) + np.std(runs_norm, axis=0), color="b", alpha=0.2,
+                     label="Unvaccinated: mean ± std")
     plt.ylabel("ACM [deaths per person-year]")
     plt.xlabel("Week number")
     plt.legend()
@@ -113,10 +138,11 @@ if __name__ == "__main__":
             if v in hx:
                 big_histogram_y[n, v] = hy[hx == v]
 
-    plt.plot(big_histogram_x, np.median(big_histogram_y, axis=0), label="Median", color="b")
+    plt.plot(big_histogram_x, np.mean(big_histogram_y, axis=0), label="Mean", color="b")
     plt.fill_between(big_histogram_x,
-                     np.quantile(big_histogram_y, q=0.25, axis=0),
-                     np.quantile(big_histogram_y, q=0.75, axis=0), color="b", alpha=0.2, label="25-75% quantile")
+                     np.mean(big_histogram_y, axis=0) - np.std(big_histogram_y, axis=0),
+                     np.mean(big_histogram_y, axis=0) + np.std(big_histogram_y, axis=0), color="b", alpha=0.2,
+                     label="Mean ± std")
     plt.ylabel("Number of deaths on that day")
     plt.xlabel("Week number")
     plt.legend()
@@ -125,13 +151,13 @@ if __name__ == "__main__":
     plt.clf()
 
     # === PLOT VACCINE EFFECTIVENESS ===
-    plt.plot(x, np.median(runs_effectiveness, axis=0), label="Effectiveness - median", color="g")
+    plt.plot(x, np.mean(runs_effectiveness, axis=0), label="Mean", color="g")
     plt.fill_between(x,
-                     np.quantile(runs_effectiveness, q=0.25, axis=0),
-                     np.quantile(runs_effectiveness, q=0.75, axis=0), color="g", alpha=0.2, label="Effectiveness - 25-75% quantile")
+                     np.mean(runs_effectiveness, axis=0) - np.std(runs_effectiveness, axis=0),
+                     np.mean(runs_effectiveness, axis=0) + np.std(runs_effectiveness, axis=0), color="g", alpha=0.2,
+                     label="Mean ± std")
     plt.ylabel("Vaccine effectiveness")
     plt.xlabel("Week number")
     plt.legend()
     plt.tight_layout()
     plt.savefig(os.path.join(RESULT_DIR, f"{filename}_effectiveness.svg"))
-
