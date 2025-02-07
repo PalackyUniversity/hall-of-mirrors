@@ -111,17 +111,17 @@ if __name__ == "__main__":
     x = list(range(1, len(runs_norm[0]) + 1))
 
     plt.figure(figsize=(11, 4))
-    plt.plot(x, np.mean(runs_vacc, axis=0), label="Vaccinated: mean", color="r")
-    plt.plot(x, np.mean(runs_norm, axis=0), label="Unvaccinated: mean", color="b")
-    plt.plot(x, np.mean(runs_all, axis=0), label="All: mean", color="b")
+    plt.plot(x, np.mean(runs_vacc, axis=0), label="Mean: vaccinated", color="r")
+    plt.plot(x, np.mean(runs_norm, axis=0), label="Mean: unvaccinated", color="b")
+    plt.plot(x, np.mean(runs_all, axis=0), label="Mean: all", color="k")
     plt.fill_between(x,
                      np.mean(runs_vacc, axis=0) - np.std(runs_vacc, axis=0),
                      np.mean(runs_vacc, axis=0) + np.std(runs_vacc, axis=0), color="r", alpha=0.2,
-                     label="Vaccinated: mean ± std")
+                     label="Mean ± std: vaccinated")
     plt.fill_between(x,
                      np.mean(runs_norm, axis=0) - np.std(runs_norm, axis=0),
                      np.mean(runs_norm, axis=0) + np.std(runs_norm, axis=0), color="b", alpha=0.2,
-                     label="Unvaccinated: mean ± std")
+                     label="Mean ± std: unvaccinated")
     plt.ylabel("ACM [deaths per person-year]")
     plt.xlabel("Week number")
     plt.legend()
