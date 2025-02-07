@@ -26,6 +26,7 @@ YEAR_DAYS = 365.25
 # Plots
 MIN_DEATH_COUNT = 1     # minimum number of deaths per day to be included in the plot
 RESULT_DIR = "result"
+RESULT_FILE = os.path.join(RESULT_DIR, f"{HVE_P=}_{HVE_K=}_{N_RUNS=}")
 
 # === SANITY CHECKS ===
 assert 0 < HVE_K < N_DAYS, "HVE_K must be smaller than N_days and greater than 0"
