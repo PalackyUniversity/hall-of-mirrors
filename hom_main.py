@@ -43,7 +43,8 @@ def run(iteration=None) -> dict[str, Any]:
 
     # Histogram
     diff = death - vaccination
-    diff = np.floor(diff[~np.isnan(diff)] / 7)  # Convert to weeks
+    diff = diff[~np.isnan(diff)]
+    # diff = np.floor(diff / 7)  # Convert to weeks
     hist_x, hist_y = np.unique(diff, return_counts=True)
 
     return {
