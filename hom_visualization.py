@@ -15,7 +15,7 @@ def plot_acm(x: list[int], runs_all: list[float], runs_vacc: list[float], runs_n
     :param runs_norm: runs with shape of (N_RUNS, ) for unvaccinated individuals
     :return: None
     """
-    plt.figure(figsize=(11, 4))
+    plt.figure(figsize=FIG_SIZE)
     plt.plot(x, np.mean(runs_vacc, axis=0), label="Mean: vaccinated", color="r")
     plt.plot(x, np.mean(runs_norm, axis=0), label="Mean: unvaccinated", color="b")
     plt.plot(x, np.mean(runs_all, axis=0), label="Mean: all", color="k")
@@ -30,7 +30,7 @@ def plot_acm(x: list[int], runs_all: list[float], runs_vacc: list[float], runs_n
     plt.ylabel("ACM [deaths per person-year]")
     plt.xlabel("Week number")
     plt.ylim(bottom=0)
-    plt.legend(loc="lower right")
+    plt.legend(loc="upper right")
     plt.tight_layout()
     plt.savefig(f"{RESULT_FILE}_acm.svg")
     plt.clf()
@@ -43,7 +43,7 @@ def plot_vaccination_death_difference(runs_hist_x: list[np.ndarray[int]], runs_h
     :param runs_hist_y: runs with shape of (N_RUNS, ) for y of the histogram
     :return: None
     """
-    plt.figure(figsize=(11, 4))
+    plt.figure(figsize=FIG_SIZE)
     big_histogram_x = list(range(min(min(i) for i in runs_hist_x), max(max(i) for i in runs_hist_x) + 1))
     big_histogram_y = np.zeros((N_RUNS, len(big_histogram_x)))
 
@@ -52,15 +52,15 @@ def plot_vaccination_death_difference(runs_hist_x: list[np.ndarray[int]], runs_h
             if v in hx:
                 big_histogram_y[n, v] = hy[hx == v]
 
-    big_histogram_x = big_histogram_x[:len(big_histogram_y[0]) // 2]
-    big_histogram_y = big_histogram_y[:, :len(big_histogram_y[0]) // 2]
+    big_histogram_x = big_histogram_x[:HVE_K * 5]
+    big_histogram_y = big_histogram_y[:, :HVE_K * 5]
     plt.plot(big_histogram_x, np.mean(big_histogram_y, axis=0), label="Mean", color="b")
     plt.fill_between(big_histogram_x,
                      np.mean(big_histogram_y, axis=0) - np.std(big_histogram_y, axis=0),
                      np.mean(big_histogram_y, axis=0) + np.std(big_histogram_y, axis=0), color="b", alpha=0.2,
                      label="Mean ± std")
     plt.ylabel("Number of deaths on that day")
-    plt.xlabel("Number of weeks since vaccination")
+    plt.xlabel("Number of days since vaccination")
     plt.legend()
     plt.tight_layout()
     plt.savefig(f"{RESULT_FILE}_hist.svg")
@@ -74,7 +74,7 @@ def plot_vaccine_effectiveness(x, runs_effectiveness):
     :param runs_effectiveness: runs with shape of (N_RUNS, ) for vaccine effectiveness
     :return: None
     """
-    plt.figure(figsize=(11, 4))
+    plt.figure(figsize=FIG_SIZE)
     plt.plot(x, np.mean(runs_effectiveness, axis=0), label="Mean", color="g")
     plt.fill_between(x,
                      np.mean(runs_effectiveness, axis=0) - np.std(runs_effectiveness, axis=0),
